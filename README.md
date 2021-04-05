@@ -5,18 +5,18 @@ This is a login microservice running on [mu.semte.ch](http://mu.semte.ch). The m
 Add the following snippet to your `docker-compose.yml` to include the login service in your project.
 
 ```
-login:
-  image: lblod/mock-login-service
+mocklogin:
+  image: lblod/toevla-mock-login-service
 ```
 
 Add rules to the `dispatcher.ex` to dispatch requests to the login service. E.g. 
 
 ```
-  match "/sessions/*path" do
-    Proxy.forward conn, path, "http://login/sessions/"
+  match "/mock/*path", _options do
+    Proxy.forward conn, path, "http://mocklogin/"
   end
 ```
-The host `login` in the forward URL reflects the name of the login service in the `docker-compose.yml` file as defined above.
+The host `mocklogin` in the forward URL reflects the name of the login service in the `docker-compose.yml` file as defined above.
 
 More information how to setup a mu.semte.ch project can be found in [mu-project](https://github.com/mu-semtech/mu-project).
 
@@ -24,9 +24,10 @@ More information how to setup a mu.semte.ch project can be found in [mu-project]
 ## Available requests
 
 #### POST /sessions
-Log in, i.e. create a new session for an account specified by its nickname and password.
+Log in, i.e. create a new session for an account specified by its
+Account id or by its PointOf Interest id.
 
-##### Request body
+##### Request body for account
 ```javascript
 data: {
    relationships: {
@@ -35,13 +36,26 @@ data: {
          id: "account_id",
          type: "accounts"
        }
-     },
-     group:{
+     }
+   },
+   type: "sessions"
+}
+```
+
+##### Request body for PointOfInterest
+This method connects to a random account for a PointOfInterest if that
+exists, or creates an account for the PointOfInterest and connects to
+that newly created account.
+
+```javascript
+data: {
+   relationships: {
+     "point-of-interest":{
        data: {
-         id: "group_id",
-         type: "groups"
+         id: "account_id",
+         type: "points-of-interest"
        }
-     }, 
+     }
    },
    type: "sessions"
 }
@@ -69,15 +83,6 @@ On successful login with the newly created session in the response body:
         "type": "accounts",
         "id": "f6419af0-c90f-465f-9333-e993c43e6cf2"
       }
-    },
-    "group": {
-      "links": {
-        "related": "/groups/f6419af0-c60f-465f-9333-e993c43e6ch5"
-      },
-      "data": {
-        "type": "groups",
-        "id": "f6419af0-c60f-465f-9333-e993c43e6ch5"
-      }
     }
   }
 }
@@ -85,8 +90,7 @@ On successful login with the newly created session in the response body:
 
 ###### 400 Bad Request
 - if session header is missing. The header should be automatically set by the [identifier](https://github.com/mu-semtech/mu-identifier).
-- if the group or account doesn't exist
-
+- if the supplied account doesn't exist, or if the supplied point-of-interest does not exist, or if neither was supplied.
 
 #### DELETE /sessions/current
 Log out the current user, i.e. remove the session associated with the current user's account.
