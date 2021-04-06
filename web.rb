@@ -1,16 +1,8 @@
-require_relative 'login_service/sparql_queries.rb'
+require_relative 'mock_login_service/sparql_queries.rb'
 
 ## Monkeypatch sparql-client with mu-auth-sudo header
 require_relative 'auth_extensions/sudo'
 include AuthExtensions::Sudo
-
-###
-# Vocabularies
-###
-
-MU_ACCOUNT = RDF::Vocabulary.new(MU.to_uri.to_s + 'account/')
-MU_SESSION = RDF::Vocabulary.new(MU.to_uri.to_s + 'session/')
-BESLUIT =  RDF::Vocabulary.new('http://data.vlaanderen.be/ns/besluit#')
 
 ###
 # POST /sessions
@@ -27,13 +19,29 @@ BESLUIT =  RDF::Vocabulary.new('http://data.vlaanderen.be/ns/besluit#')
 #   },
 #   type: "sessions"
 # }
+#
+# OR
+#
+# data: {
+#   relationships: {
+#     point-of-interest:{
+#       data: {
+#         id: "point_of_interest_id",
+#         type: "points-of-interest"
+#       }
+#     }
+#   },
+#   type: "sessions"
+# }
+#
+#
 # Returns 201 on successful login
 #         400 if session header is missing
 #         400 on login failure (incorrect user/password or inactive account)
 ###
-post '/sessions/' do
-  content_type 'application/vnd.api+json'
 
+post '/sessions' do
+  content_type 'application/vnd.api+json'
 
   ###
   # Validate headers
@@ -55,37 +63,39 @@ post '/sessions/' do
 
   validate_resource_type('sessions', data)
   error('Id paramater is not allowed', 400) if not data['id'].nil?
-  error('exactly one account should be linked') unless data.dig("relationships","account", "data", "id")
-  error('exactly one group should be linked') unless data.dig("relationships","group", "data", "id")
 
+  account_id = data.dig("relationships","account","data","id")
+  poi_id = data.dig("relationships","point-of-interest","data","id")
+
+  has_account_id_supplied = account_id && true || false
+  has_poi_id_supplied = poi_id && true || false
+
+  error('an account or a point of interest should be linked') unless has_account_id_supplied or has_poi_id_supplied
+  error('either account or point of interest should be linked, not both') if has_account_id_supplied and has_poi_id_supplied
 
   ###
   # Validate login
   ###
-
-  result = select_account(data["relationships"]["account"]["data"]["id"])
-  error('account not found.', 400) if result.empty?
-  account = result.first
-
-  group_id = data["relationships"]["group"]["data"]["id"]
-  result = select_group(group_id)
-  error('group not found', 400) if result.empty?
-  group = result.first
-
-  result = select_roles(data["relationships"]["account"]["data"]["id"])
-  error('roles not found', 400) if result.empty?
-  roles = result.map { |r| r[:role].to_s }
+  if has_account_id_supplied
+    accounts = select_account( account_id )
+    error('account not found.', 400) if accounts.empty?
+    account_info = accounts.first
+  else # must have poi supplied
+    poi = select_poi( poi_id )
+    error('PointOfInterest not found.', 400) unless poi
+    account_info = ensure_account_for_poi( poi_id )
+  end
 
   ###
   # Remove old sessions
   ###
-  remove_old_sessions(session_uri)
+  remove_session(session_uri)
 
   ###
   # Insert new session
   ###
   session_id = generate_uuid()
-  insert_new_session_for_account(account[:uri].to_s, session_uri, session_id, group[:group].to_s, group_id, roles)
+  insert_new_session_for_account(account_info[:uri].to_s, session_uri, session_id)
 
   status 201
   headers['mu-auth-allowed-groups'] = 'CLEAR'
@@ -95,28 +105,16 @@ post '/sessions/' do
     },
     data: {
       type: 'sessions',
-      id: session_id,
-      attributes: {
-        roles: roles
-      }
+      id: session_id
     },
     relationships: {
       account: {
         links: {
-          related: "/accounts/#{data['relationships']['account']['data']['id']}"
+          related: "/accounts/#{session_id}"
         },
         data: {
           type: "accounts",
-          id: data['relationships']['account']['data']['id']
-        }
-      },
-      group: {
-        links: {
-          related: "/bestuurseenheden/#{data['relationships']['group']['data']['id']}"
-        },
-        data: {
-          type: "bestuurseenheden",
-          id: data['relationships']['group']['data']['id']
+          id: account_info[:id]
         }
       }
     }
@@ -147,14 +145,12 @@ delete '/sessions/current/?' do
 
   result = select_account_by_session(session_uri)
   error('Invalid session') if result.empty?
-  account = result.first[:account].to_s
-
 
   ###
   # Remove session
   ###
 
-  delete_current_session(account)
+  remove_session( session_uri )
 
   status 204
   headers['mu-auth-allowed-groups'] = 'CLEAR'
@@ -195,10 +191,7 @@ get '/sessions/current/?' do
     },
     data: {
       type: 'sessions',
-      id: session[:session_uuid],
-      attributes: {
-        roles: session[:roles].to_s.split(',')
-      }
+      id: session[:session_uuid]
     },
     relationships: {
       account: {
@@ -208,15 +201,6 @@ get '/sessions/current/?' do
         data: {
           type: "accounts",
           id: session[:account_uuid]
-        }
-      },
-      group: {
-        links: {
-          related: "/bestuurseenheden/#{session[:group_uuid]}"
-        },
-        data: {
-          type: "bestuurseenheden",
-          id: session[:group_uuid]
         }
       }
     }
@@ -228,4 +212,4 @@ end
 # Helpers
 ###
 
-helpers LoginService::SparqlQueries
+helpers MockLoginService::SparqlQueries
