@@ -153,13 +153,7 @@ module MockLoginService
 
     def select_poi(id)
       query = """
-        PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
-        PREFIX musession: <http://mu.semte.ch/vocabularies/session/>
-        PREFIX muaccount: <http://mu.semte.ch/vocabularies/account/>
-        PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-        PREFIX dc: <http://purl.org/dc/elements/1.1/>
-        PREFIX adres: <https://data.vlaanderen.be/ns/adres#>
-        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        #{PREFIXES}
 
         SELECT ?uri WHERE {
           GRAPH ?graph {
