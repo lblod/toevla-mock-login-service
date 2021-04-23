@@ -165,5 +165,33 @@ module MockLoginService
 
       query( query ).first
     end
+
+    def list_pois
+      query = """
+        #{PREFIXES}
+
+        SELECT DISTINCT ?id ?label WHERE {
+          ?poi a adres:AdresseerbaarObject;
+               mu:uuid ?id;
+               rdfs:label ?label.
+        }
+      """
+
+      query( query )
+    end
+
+    def amount_of_pois
+      query = """
+        #{PREFIXES}
+
+        SELECT (count(distinct ?poi) AS ?itemCount) WHERE {
+          ?poi a adres:AdresseerbaarObject;
+               mu:uuid ?id;
+               rdfs:label ?label.
+        }
+      """
+
+      query( query ).first.itemCount
+    end
   end
 end

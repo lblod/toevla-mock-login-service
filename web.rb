@@ -207,6 +207,34 @@ get '/sessions/current/?' do
   }.to_json
 end
 
+###
+# GET /pois
+#
+# Returns 200 with available poinst-of-interest in body
+###
+get '/pois/?' do
+  # TODO: Add param filter
+  # TODO: Add param page[size] and page[number]
+  content_type 'application/vnd.api+json'
+
+  pois = list_pois()
+
+  status 200
+  {
+    data: pois.map do |poi|
+      {
+        type: "points-of-interest",
+        id: poi.id,
+        attributes: {
+          label: poi.label
+        }
+      }
+    end,
+    meta: {
+      count: amount_of_pois
+    }
+  }.to_json
+end
 
 ###
 # Helpers
