@@ -1,0 +1,61 @@
+---
+kind: pipeline
+type: docker
+name: verify-pr
+steps:
+- name: build-dry-run
+  image: plugins/docker
+  settings:
+    repo: lblod/toevla-mock-login-service
+    dry_run: true
+    purge: true
+trigger:
+  event:
+    - pull
+---
+kind: pipeline
+type: docker
+name: push-latest-build-on-commit-to-master
+steps:
+- name: push-latest-build
+  image: plugins/docker
+  settings:
+    repo: lblod/toevla-mock-login-service
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+trigger:
+  branch:
+    - master
+  event:
+    exclude:
+    - pull_request
+---
+kind: pipeline
+type: docker
+name: release-on-tag
+steps:
+- name: build-dry-run
+  image: plugins/docker
+  settings:
+    repo: lblod/toevla-mock-login-service
+    dry_run: true
+- name: push-tagged-build
+  image: plugins/docker
+  settings:
+    repo: lblod/toevla-mock-login-service
+    tags: ${DRONE_TAG##v}
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+    purge: true
+trigger:
+  event:
+    - tag
+---
+kind: signature
+hmac: f98dc24fe904126e5b961d95e29771965c6f331b485fd4549a6767a05f8d847d
+
+...
