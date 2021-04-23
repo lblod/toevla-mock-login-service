@@ -4,7 +4,7 @@ module MockLoginService
   module SparqlQueries
     include SinatraTemplate::Utils
 
-    ACCOUNTS_GRAPH_BASE = "http://data.toevla.org/graphs/accounts/"
+    ACCOUNTS_GRAPH_BASE = "http://data.toevla.org/accounts/"
 
     PREFIXES = """
       PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
@@ -61,7 +61,7 @@ module MockLoginService
           GRAPH #{sparql_escape_uri graph} {
             #{sparql_escape_uri session_uri} a musession:Session;
                                              mu:uuid #{sparql_escape_string session_id};
-                                             musession:account #{sparql_escape_uri account};
+                                             ext:hasAccount #{sparql_escape_uri account};
                                              dc:modified #{sparql_escape_datetime now.to_s} .
           }
         }
@@ -73,7 +73,7 @@ module MockLoginService
         #{PREFIXES}
         SELECT ?account ?session_uuid ?account_uuid WHERE {
           GRAPH ?a {
-            #{sparql_escape_uri session} musession:account ?account;
+            #{sparql_escape_uri session} ext:hasAccount ?account;
                                          mu:uuid ?session_uuid.
             ?account mu:uuid ?account_uuid.
           }
