@@ -49,7 +49,7 @@ module MockLoginService
       if account_info && account_info.first
         account_id = account_info.first[:account_id]
       else
-        raise "No account info found"
+        raise "No account info found for account #{account}"
       end
 
       graph = "#{ACCOUNTS_GRAPH_BASE}#{account_id}"
@@ -106,7 +106,8 @@ module MockLoginService
                  mu:uuid #{sparql_escape_string id}.
           }
           GRAPH ?a {
-            ?uri ext:hasRole/ext:actsOn ?poi;
+            ?uri a foaf:OnlineAccount;
+                 ext:hasRole/ext:actsOn ?poi;
                  mu:uuid ?id.
           }
         }
